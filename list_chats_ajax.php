@@ -41,6 +41,8 @@ if (isset($_SESSION[$tokenSessionKey])) {
 }
 
 // Check the auth token
+$onemin = $temponemin = 0;
+$chatmoderator = array();
 if ($client->getAccessToken()) {
   try {
       /* List the Chat Messages for the Livechatid received from the above broadcast
@@ -54,6 +56,20 @@ if ($client->getAccessToken()) {
     if($streamsResponse)  {
       $htmlBody = "<ul>";
       foreach ($streamsResponse['items'] as $streamItem) {
+          $cal = date("i",strtotime($streamItem["snippet"]['publishedAt']));
+          
+          if(($cal) == $temponemin)  
+          {
+              $onemin += 1;
+          }
+          else {
+              $onemin = 0;
+          }
+          $temponemin = $cal;
+          if($streamItem['authorDetails']['isChatModerator'] === true && !in_array($streamItem['authorDetails']['channelId'], $chatmoderator))    {
+            $chatmoderator[] = $streamItem['authorDetails']['channelId'];
+          }
+
           if($streamItem['authorDetails']['isChatOwner'] === true)    {
               $htmlBody .= '<li style="list-style:none;"><img height="25" width="25" src="'.$streamItem['authorDetails']['profileImageUrl'].'"> <b style="color:blue">'. $streamItem['authorDetails']['displayName'].'</b> : '.$streamItem['snippet']['textMessageDetails']["messageText"].'</li>';  
           }
@@ -73,5 +89,9 @@ if ($client->getAccessToken()) {
 } else {
     $htmlBody = "failure";
 }
-echo $htmlBody;
+$data["onemin"] = $onemin;
+$data["htmlBody"] = $htmlBody;
+$data["chatmoderator"] = count($chatmoderator);
+
+echo json_encode($data);
 ?>

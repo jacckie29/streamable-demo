@@ -41,6 +41,10 @@ if (isset($_SESSION[$tokenSessionKey])) {
 }
 
 // Check the auth token
+$htmlBody = "";
+$liveChatId = "";
+$onemin = $temponemin = 0;
+$chatmoderator = array();
 if ($client->getAccessToken()) {
   try {
     // List the Broadcasts owned by the user who has authorized to get the livechatid
@@ -66,8 +70,7 @@ if ($client->getAccessToken()) {
         }
       }
     }
-    $htmlBody = "";
-    $liveChatId = "";
+
     if(isset($_GET["liveChatId"]))  {
         $liveChatId = $_GET["liveChatId"];
         /* List the Chat Messages for the Livechatid received from the above broadcast
@@ -80,6 +83,20 @@ if ($client->getAccessToken()) {
 
         $htmlBody = "<ul>";
         foreach ($streamsResponse['items'] as $streamItem) {
+            $cal = date("i",strtotime($streamItem["snippet"]['publishedAt']));
+            
+            
+            if(($cal) == $temponemin)  
+            {
+                $onemin += 1;
+            }
+            else {
+                $onemin = 0;
+            }
+            $temponemin = $cal;
+            if($streamItem['authorDetails']['isChatModerator'] === true && !in_array($streamItem['authorDetails']['channelId'], $chatmoderator))    {
+                $chatmoderator[] = $streamItem['authorDetails']['channelId'];
+            }
             if($streamItem['authorDetails']['isChatOwner'] === true)    {
                 $htmlBody .= '<li style="list-style:none;"><img height="25" width="25" src="'.$streamItem['authorDetails']['profileImageUrl'].'"> <b style="color:blue">'. $streamItem['authorDetails']['displayName'].'</b> : '.$streamItem['snippet']['textMessageDetails']["messageText"].'</li>';  
             }
@@ -110,7 +127,9 @@ if ($client->getAccessToken()) {
 <body>
 <h3>To fetch using Video Id <a href="list_chats_video.php">Click Here</a></h3>
 
-<h3>Active Broadcast</h3>
+<h3>Active Broadcast:</h3>
+<p>No. of messages in last one min: <span id="onemin"><?=$onemin?></span></p>
+<p>Moderators active in chat: <span id="chatmoderator"><?=count($chatmoderator)?></span></p>
 <select name="broadcast" id="broadcast" onChange="fetchBroadcast();">
 <?=$broadcastBody?>
 </select>
@@ -152,12 +171,14 @@ function fetchChats() {
             method: "POST",
             data: { id: id}
         }).done(function( data ) {
-            if(data == "failure")
+            response = JSON.parse(data);
+            if(response.htmlBody == "failure")
             {
                 window.location.href = "index.php";
             }
             else {
-                $("#chatMessage").html(data);
+                $("#chatMessage").html(response.htmlBody);
+                $("#onemin").html(response.onemin);
             }
         });
     }
@@ -172,12 +193,14 @@ function sendChat(chatId) {
             url: "send_chat.php",
             data: { message: message, chatId: chatId}
         }).done(function( data ) {
-            if(data == "failure")
+            response = JSON.parse(data);
+            if(response.htmlBody == "failure")
             {
                 window.location.href = "index.php";
             }
             else {
-                $("#chatMessage").html(data);
+                $("#chatMessage").html(response.htmlBody);
+                $("#onemin").html(response.onemin);
                 $("#sendMessage").val("");
             }
         });

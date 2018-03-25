@@ -69,7 +69,23 @@ if ($client->getAccessToken()) {
         $streamsResponse = $youtube->liveChatMessages->listLiveChatMessages($liveChatId,'snippet,authorDetails', array('maxResults' => '300'));
 
         $htmlBody = "<ul>";
+        $onemin = $temponemin = 0;
+        $chatmoderator = array();
         foreach ($streamsResponse['items'] as $streamItem) {
+            $cal = date("i",strtotime($streamItem["snippet"]['publishedAt']));
+            
+            if(($cal) == $temponemin)  
+            {
+                $onemin += 1;
+            }
+            else {
+                $onemin = 0;
+            }
+            $temponemin = $cal;
+            
+            if($streamItem['authorDetails']['isChatModerator'] === true && !in_array($streamItem['authorDetails']['channelId'], $chatmoderator))    {
+                $chatmoderator[] = $streamItem['authorDetails']['channelId'];
+            }
             if($streamItem['authorDetails']['isChatOwner'] === true)    {
                 $htmlBody .= '<li style="list-style:none;"><img height="25" width="25" src="'.$streamItem['authorDetails']['profileImageUrl'].'"> <b style="color:blue">'. $streamItem['authorDetails']['displayName'].'</b> : '.$streamItem['snippet']['textMessageDetails']["messageText"].'</li>';  
             }
@@ -79,7 +95,6 @@ if ($client->getAccessToken()) {
         }
         $htmlBody .= '</ul>';
     }   
-
   } catch (Google_Service_Exception $e) {      
     $htmlBody = $e->getErrors()[0]["message"];
   } catch (Google_Exception $e) {
@@ -104,7 +119,9 @@ if ($client->getAccessToken()) {
 <input type="text" name="videoId" id="videoId" value="<?=$videoId?>" />
 <input type="button" name="fetchChatId" id="fetchChatId" value="Get Chat Messages" onclick="fetchChatID()"/> 
 <?php if($liveChatId != "")  { ?>
-    <h3>Live Chats</h3>
+    <h3>Live Chats:</h3>
+    <p>No. of messages in last one min: <span id="onemin"><?=$onemin?></span></p>
+    <p>Moderators active in chat: <span id="chatmoderator"><?=count($chatmoderator)?></span></p>
     <div id="chatMessage" style="height:400px;overflow:auto;border-style: solid;border-width: 1px;margin-bottom:10px;">
     <?=$htmlBody?>
     </div>
@@ -144,12 +161,15 @@ function fetchChats() {
             method: "POST",
             data: { id: id}
         }).done(function( data ) {
-            if(data == "failure")
+            response = JSON.parse(data);
+            if(response.htmlBody == "failure")
             {
                 window.location.href = "index.php";
             }
             else {
-                $("#chatMessage").html(data);
+                $("#chatMessage").html(response.htmlBody);
+                $("#onemin").html(response.onemin);
+                $("#chatmoderator").html(response.chatmoderator);
             }
         });
     }
@@ -164,12 +184,15 @@ function sendChat(chatId) {
             url: "send_chat.php",
             data: { message: message, chatId: chatId}
         }).done(function( data ) {
-            if(data == "failure")
+            response = JSON.parse(data);
+            if(response.htmlBody == "failure")
             {
                 window.location.href = "index.php";
             }
             else {
-                $("#chatMessage").html(data);
+                $("#chatMessage").html(response.htmlBody);
+                $("#onemin").html(response.onemin);
+                $("#chatmoderator").html(response.chatmoderator);
                 $("#sendMessage").val("");
             }
         });
